@@ -1,0 +1,135 @@
+#include "threads/thread.h"
+#include "threads/palloc.h"
+#include "filesys/file.h"
+#include "userprog/pagedir.h"
+#include "vm/frame.h"
+#include "vm/page.h"
+#include <hash.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+static struct hash suppPages;
+
+static bool install_page (void *upage, void *kpage, bool writable);
+unsigned suppPage_hash (const struct hash_elem *f_, void *aux UNUSED);
+bool suppPage_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
+
+
+/* Returns a hash value for suppPage f. */
+unsigned
+suppPage_hash(const struct hash_elem *f_, void *aux UNUSED){
+	const struct suppPage *p = hash_entry (f_, struct suppPage, hash_elem);
+	return hash_bytes (&p->upage, sizeof p->upage);
+}
+
+/* Returns true if suppPage a precedes suppPage b. */
+bool
+suppPage_less (const struct hash_elem *a_, const struct hash_elem *b_,
+		           void *aux UNUSED)
+{
+	const struct suppPage *a = hash_entry (a_, struct suppPage, hash_elem);
+	const struct suppPage *b = hash_entry (b_, struct suppPage, hash_elem);
+	return a->upage < b->upage;
+}
+
+void
+suppPage_init (void) {
+	hash_init (&suppPages, suppPage_hash, suppPage_less, NULL);
+}
+
+bool
+suppPage_insert (uint8_t *upage,
+		struct file *file, size_t page_read_bytes,
+		size_t page_zero_bytes, bool writable){
+
+	struct load_info li = {
+		.file = file,
+		.page_read_bytes = page_read_bytes,
+		.page_zero_bytes = page_zero_bytes,
+		.writable = writable,
+	};
+
+struct suppPage *p = malloc(sizeof(struct suppPage));
+  if (p == NULL)
+    return false;
+
+  p->upage = upage;
+  p->load_info = li;
+	p->isLoaded = false;
+
+  hash_insert(&suppPages, &p->hash_elem);
+  return true;
+}
+
+
+struct suppPage *
+suppPage_lookup (uint8_t *upage)
+{
+  struct suppPage p;
+  struct hash_elem *e;
+
+  p.upage = upage;
+  e = hash_find (&suppPages, &p.hash_elem);
+  return e != NULL ? hash_entry (e, struct suppPage, hash_elem) : NULL;
+}
+
+bool
+suppPage_load(struct suppPage *p) {
+	if (p->isLoaded) {
+		return false;
+	}
+
+	uint8_t *upage = p->upage;
+	struct file *file = p->load_info.file;
+	size_t page_read_bytes = p->load_info.page_read_bytes;
+	size_t page_zero_bytes = p->load_info.page_zero_bytes;
+	bool writable = p->load_info.writable;
+
+
+	/* The followings are cutted from userprog/process.c */
+	/* Get a page of memory. */
+	uint8_t *kpage = frame_get_page(false);
+	if (kpage == NULL)
+		return false;
+
+	/* Load this page. */
+	if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
+		{
+			palloc_free_page (kpage);
+			return false; 
+		}
+	memset (kpage + page_read_bytes, 0, page_zero_bytes);
+
+	/* Add the page to the process's address space. */
+	if (!install_page (upage, kpage, writable)) 
+		{
+			palloc_free_page (kpage);
+			return false; 
+		}
+
+	/* loaded successfully */
+	p->isLoaded = true;
+	return true;
+}
+
+/* Adds a mapping from user virtual address UPAGE to kernel
+   virtual address KPAGE to the page table.
+   If WRITABLE is true, the user process may modify the page;
+   otherwise, it is read-only.
+   UPAGE must not already be mapped.
+   KPAGE should probably be a page obtained from the user pool
+   with palloc_get_page().
+   Returns true on success, false if UPAGE is already mapped or
+   if memory allocation fails. */
+static bool
+install_page (void *upage, void *kpage, bool writable)
+{
+  struct thread *t = thread_current ();
+
+  /* Verify that there's not already a page at that virtual
+     address, then map our page there. */
+  return (pagedir_get_page (t->pagedir, upage) == NULL
+          && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
