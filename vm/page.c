@@ -77,6 +77,7 @@ suppPage_lookup (uint8_t *upage)
 
 bool
 suppPage_load(struct suppPage *p) {
+	if (p == NULL) return false;
 	if (p->isLoaded) {
 		return false;
 	}
