@@ -12,11 +12,12 @@ struct load_info {
 	size_t page_read_bytes;
 	size_t page_zero_bytes;
 	bool writable;
+	off_t ofs;
 };
 
 /* Supplementary page structure to hold pages' information*/
 struct suppPage {
-	uint8_t *upage;
+	void *upage;
 	struct hash_elem hash_elem;
 	bool isLoaded;
 	struct load_info load_info;
@@ -25,11 +26,11 @@ struct suppPage {
 
 void suppPage_init(void);
 
-bool suppPage_insert (uint8_t *upage,
+bool suppPage_insert (void *upage,
 		struct file *file, size_t page_read_bytes,
-		size_t page_zero_bytes, bool writable);
+		size_t page_zero_bytes, bool writable, off_t ofs);
 
-struct suppPage * suppPage_lookup (uint8_t *upage);
+struct suppPage * suppPage_lookup (void *upage);
 
 bool suppPage_load(struct suppPage *p);
 

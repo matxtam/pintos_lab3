@@ -19,6 +19,7 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 #include "vm/frame.h"
+#include "vm/page.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -505,16 +506,17 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
 			/* instead, we add this virtual address into SPT: */
 			if (!suppPage_insert(upage, file, 
-				page_read_bytes, page_zero_bytes, writable)){
+				page_read_bytes, page_zero_bytes, writable, ofs)){
 				return false;
 			}
-
-
 
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
+
+			// I HATE THIS LINE BUT I NEED IT
+			ofs += page_read_bytes;
     }
   return true;
 }
@@ -531,8 +533,12 @@ setup_stack (void **esp)
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
+      if (success){
         *esp = PHYS_BASE;
+				if (!suppPage_insert(pg_round_down(((uint8_t *) PHYS_BASE) - PGSIZE), NULL, 0, 0, true, 0)){
+					return false;
+				}
+			}
       else
         palloc_free_page (kpage);
     }

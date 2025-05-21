@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdio.h>
 
 static struct hash suppPages;
 
@@ -40,18 +41,20 @@ suppPage_init (void) {
 }
 
 bool
-suppPage_insert (uint8_t *upage,
+suppPage_insert (void *upage,
 		struct file *file, size_t page_read_bytes,
-		size_t page_zero_bytes, bool writable){
+		size_t page_zero_bytes, bool writable, off_t ofs){
+	// printf("spt: inserting...\n");
 
 	struct load_info li = {
 		.file = file,
 		.page_read_bytes = page_read_bytes,
 		.page_zero_bytes = page_zero_bytes,
 		.writable = writable,
+		.ofs = ofs,
 	};
 
-struct suppPage *p = malloc(sizeof(struct suppPage));
+	struct suppPage *p = malloc(sizeof(struct suppPage));
   if (p == NULL)
     return false;
 
@@ -60,12 +63,13 @@ struct suppPage *p = malloc(sizeof(struct suppPage));
 	p->isLoaded = false;
 
   hash_insert(&suppPages, &p->hash_elem);
+	// printf("insert successfully\n");
   return true;
 }
 
 
 struct suppPage *
-suppPage_lookup (uint8_t *upage)
+suppPage_lookup (void *upage)
 {
   struct suppPage p;
   struct hash_elem *e;
@@ -77,23 +81,33 @@ suppPage_lookup (uint8_t *upage)
 
 bool
 suppPage_load(struct suppPage *p) {
-	if (p == NULL) return false;
+	// printf("spt: loading...\n");
+	if (p == NULL){
+		printf("Error: spt: p is null!\n");
+		return false;
+	}
 	if (p->isLoaded) {
+		printf("Error: spt: p is already loaded!\n");
 		return false;
 	}
 
-	uint8_t *upage = p->upage;
+	void *upage = p->upage;
 	struct file *file = p->load_info.file;
 	size_t page_read_bytes = p->load_info.page_read_bytes;
 	size_t page_zero_bytes = p->load_info.page_zero_bytes;
 	bool writable = p->load_info.writable;
+	off_t ofs = p->load_info.ofs;
 
+  file_seek (file, ofs);
 
 	/* The followings are cutted from userprog/process.c */
 	/* Get a page of memory. */
-	uint8_t *kpage = frame_get_page(false);
-	if (kpage == NULL)
+	uint8_t *kpage;
+ if(page_read_bytes == 0)kpage = frame_get_page(true);
+ else kpage = frame_get_page(false);
+	if (kpage == NULL) {
 		return false;
+	}
 
 	/* Load this page. */
 	if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
@@ -112,6 +126,7 @@ suppPage_load(struct suppPage *p) {
 
 	/* loaded successfully */
 	p->isLoaded = true;
+	// printf("load success\n");
 	return true;
 }
 
