@@ -20,6 +20,10 @@ struct suppPage {
 	void *upage;
 	struct hash_elem hash_elem;
 	bool isLoaded;
+	bool isFile;
+	bool isPinned;
+	bool isInSwap;
+	size_t swap_slot;
 	struct load_info load_info;
   
 };
@@ -28,7 +32,7 @@ void suppPage_init(void);
 
 bool suppPage_insert (void *upage,
 		struct file *file, size_t page_read_bytes,
-		size_t page_zero_bytes, bool writable, off_t ofs);
+		size_t page_zero_bytes, bool writable, off_t ofs, bool isFile);
 
 struct suppPage * suppPage_lookup (void *upage);
 

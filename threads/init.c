@@ -38,6 +38,7 @@
 #include "filesys/fsutil.h"
 #include "vm/frame.h"
 #include "vm/page.h"
+#include "vm/swap.h"
 #endif
 
 /* Page directory with kernel mappings only. */
@@ -130,6 +131,8 @@ main (void)
   locate_block_devices ();
   filesys_init (format_filesys);
 #endif
+	
+	swap_init (); // lab03
 
   printf ("Boot complete.\n");
   

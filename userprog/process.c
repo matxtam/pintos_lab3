@@ -506,7 +506,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
 			/* instead, we add this virtual address into SPT: */
 			if (!suppPage_insert(upage, file, 
-				page_read_bytes, page_zero_bytes, writable, ofs)){
+				page_read_bytes, page_zero_bytes, writable, ofs, /*isFile: */true)){
 				return false;
 			}
 
@@ -529,13 +529,15 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
-  kpage = frame_get_page(true);
+	void *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
+  kpage = frame_get_page(upage, true);
   if (kpage != NULL) 
     {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+      success = install_page (upage, kpage, true);
       if (success){
         *esp = PHYS_BASE;
-				if (!suppPage_insert(pg_round_down(((uint8_t *) PHYS_BASE) - PGSIZE), NULL, 0, 0, true, 0)){
+				if (!suppPage_insert(upage, NULL, 0, 0, true, 0, 
+							/*is file*/false)){
 					return false;
 				}
 			}

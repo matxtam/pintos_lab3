@@ -156,8 +156,15 @@ page_fault (struct intr_frame *f)
 	
 	// lab03
 	void *upage = pg_round_down(fault_addr);
-	if(!suppPage_load(suppPage_lookup(upage))) {
-
+	struct suppPage * sp = suppPage_lookup(upage);
+	bool success = false;
+	if(!sp){
+		printf("Error: upage not in SPT\n");
+	}else if(suppPage_load(sp)) {
+		success = true; 
+	}
+	
+	if (!success){
 		printf ("Page fault at %p: %s error %s page in %s context.\n",
 						fault_addr,
 						not_present ? "not present" : "rights violation",

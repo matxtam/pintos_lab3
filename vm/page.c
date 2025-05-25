@@ -43,7 +43,8 @@ suppPage_init (void) {
 bool
 suppPage_insert (void *upage,
 		struct file *file, size_t page_read_bytes,
-		size_t page_zero_bytes, bool writable, off_t ofs){
+		size_t page_zero_bytes, bool writable, off_t ofs,
+		bool isFile){
 	// printf("spt: inserting...\n");
 
 	struct load_info li = {
@@ -61,6 +62,9 @@ suppPage_insert (void *upage,
   p->upage = upage;
   p->load_info = li;
 	p->isLoaded = false;
+	p->isFile = isFile;
+	p->isPinned = false;
+	p->isInSwap = false;
 
   hash_insert(&suppPages, &p->hash_elem);
 	// printf("insert successfully\n");
@@ -81,16 +85,12 @@ suppPage_lookup (void *upage)
 
 bool
 suppPage_load(struct suppPage *p) {
-	// printf("spt: loading...\n");
 	if (p == NULL){
 		printf("Error: spt: p is null!\n");
 		return false;
 	}
-	if (p->isLoaded) {
-		printf("Error: spt: p is already loaded!\n");
-		return false;
-	}
 
+	// load file
 	void *upage = p->upage;
 	struct file *file = p->load_info.file;
 	size_t page_read_bytes = p->load_info.page_read_bytes;
@@ -98,24 +98,29 @@ suppPage_load(struct suppPage *p) {
 	bool writable = p->load_info.writable;
 	off_t ofs = p->load_info.ofs;
 
-  file_seek (file, ofs);
 
-	/* The followings are cutted from userprog/process.c */
 	/* Get a page of memory. */
 	uint8_t *kpage;
- if(page_read_bytes == 0)kpage = frame_get_page(true);
- else kpage = frame_get_page(false);
+	if(page_read_bytes == 0)kpage = frame_get_page(upage, true);
+	else kpage = frame_get_page(upage, false);
 	if (kpage == NULL) {
 		return false;
 	}
 
 	/* Load this page. */
-	if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
-		{
-			palloc_free_page (kpage);
-			return false; 
-		}
-	memset (kpage + page_read_bytes, 0, page_zero_bytes);
+	if (p->isFile && (!p->isLoaded || !p->isInSwap)) {
+		file_seek (file, ofs);
+		// printf("loading: is file\n");
+		if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
+			{
+				palloc_free_page (kpage);
+				return false; 
+			}
+		memset (kpage + page_read_bytes, 0, page_zero_bytes);
+
+	} else if(p->isInSwap){
+		swap_in(kpage, p->swap_slot);
+	}
 
 	/* Add the page to the process's address space. */
 	if (!install_page (upage, kpage, writable)) 
@@ -126,6 +131,7 @@ suppPage_load(struct suppPage *p) {
 
 	/* loaded successfully */
 	p->isLoaded = true;
+	p->isInSwap = false;
 	// printf("load success\n");
 	return true;
 }
