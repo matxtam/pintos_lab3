@@ -53,9 +53,9 @@ frame_get_page(void *upage, bool zero) {
 		new_frame->kaddr = palloc_get_page(PAL_USER );
 	}
 	if(new_frame->kaddr == NULL){
-		lock_acquire(lock_evict);
+		lock_acquire(&lock_evict);
 		evict();
-		lock_release(lock_evict);
+		lock_release(&lock_evict);
 		if(zero) {
 			new_frame->kaddr = palloc_get_page(PAL_USER | PAL_ASSERT | PAL_ZERO);
 		} else {
