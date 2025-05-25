@@ -88,7 +88,10 @@ evict(void){
 		bool accessed = pagedir_is_accessed(f->t->pagedir, f->kaddr);
 		bool dirty = pagedir_is_dirty(f->t->pagedir, f->kaddr);
 		struct suppPage *p = suppPage_lookup(f->uaddr);
-		if (p->isPinned)continue;
+		if (p->isPinned){
+			printf("this frame is pinned!\n");
+			continue;
+		}
 
 		if (!accessed && !dirty && v_0_0 == NULL) v_0_0 = f;
 		else if (!accessed && dirty && v_0_1 == NULL) v_0_1 = f;

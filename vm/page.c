@@ -12,8 +12,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-static struct hash suppPages;
-
 static bool install_page (void *upage, void *kpage, bool writable);
 unsigned suppPage_hash (const struct hash_elem *f_, void *aux UNUSED);
 bool suppPage_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
@@ -38,7 +36,7 @@ suppPage_less (const struct hash_elem *a_, const struct hash_elem *b_,
 
 void
 suppPage_init (void) {
-	hash_init (&suppPages, suppPage_hash, suppPage_less, NULL);
+	hash_init (&thread_current()->suppPages, suppPage_hash, suppPage_less, NULL);
 }
 
 bool
@@ -67,7 +65,7 @@ suppPage_insert (void *upage,
 	p->isPinned = false;
 	p->isInSwap = false;
 
-  hash_insert(&suppPages, &p->hash_elem);
+  hash_insert(&thread_current()->suppPages, &p->hash_elem);
 	// printf("insert successfully\n");
   return true;
 }
@@ -80,7 +78,7 @@ suppPage_lookup (void *upage)
   struct hash_elem *e;
 
   p.upage = upage;
-  e = hash_find (&suppPages, &p.hash_elem);
+  e = hash_find (&thread_current()->suppPages, &p.hash_elem);
   return e != NULL ? hash_entry (e, struct suppPage, hash_elem) : NULL;
 }
 
@@ -161,10 +159,15 @@ install_page (void *upage, void *kpage, bool writable)
 
 
 void pin_user_pages(const void *uaddr_, size_t size) {
+	printf("pin user page\n");
   uint8_t *uaddr = pg_round_down(uaddr_);
   for (size_t ofs = 0; ofs < size; ofs += PGSIZE) {
     struct suppPage *p = suppPage_lookup(uaddr + ofs);
-    if (p) p->isPinned = true;
+		ASSERT(p);
+			    if (!p->isLoaded) {
+						      suppPage_load(p); 
+			}
+			p->isPinned = true;
   }
 }
 
@@ -174,4 +177,12 @@ void unpin_user_pages(const void *uaddr_, size_t size) {
     struct suppPage *p = suppPage_lookup(uaddr + ofs);
     if (p) p->isPinned = false;
   }
+}
+void spt_destructor(struct hash_elem *e, void *aux) {
+	struct suppPage *p = hash_entry(e, struct suppPage, hash_elem);
+	free(p);
+}
+void
+suppPage_destroy(void){
+	hash_destroy(&thread_current()->suppPages, spt_destructor);
 }

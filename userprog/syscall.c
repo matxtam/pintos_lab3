@@ -126,6 +126,7 @@ void sys_wait(struct intr_frame* f)
 
 void sys_write(struct intr_frame* f)
 {
+	printf("sys_write\n");
   uint32_t *args = (uint32_t)f->esp;
 
   int fd = args[1];
@@ -215,6 +216,7 @@ void sys_filesize (struct intr_frame* f){
 
 void sys_read (struct intr_frame* f)
 {
+	printf("sys_read\n");
   uint32_t *args = (uint32_t)f->esp;
 
   int fd = args[1];

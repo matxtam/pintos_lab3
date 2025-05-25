@@ -42,4 +42,5 @@ void pin_user_pages(const void *uaddr_, size_t size);
 
 void unpin_user_pages(const void *uaddr_, size_t size);
 	
+void suppPage_destroy(void);
 #endif
