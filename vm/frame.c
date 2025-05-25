@@ -12,6 +12,7 @@
 #include "vm/swap.h"
 
 static struct hash frames;
+static struct lock lock_evict;
 
 unsigned frame_hash (const struct hash_elem *f_, void *aux UNUSED);
 bool frame_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
@@ -39,6 +40,7 @@ frame_less (const struct hash_elem *a_, const struct hash_elem *b_,
 void
 frame_init (void) {
 	hash_init (&frames, frame_hash, frame_less, NULL);
+	lock_init(&lock_evict);
 }
 
 void *
@@ -51,7 +53,9 @@ frame_get_page(void *upage, bool zero) {
 		new_frame->kaddr = palloc_get_page(PAL_USER );
 	}
 	if(new_frame->kaddr == NULL){
+		lock_acquire(lock_evict);
 		evict();
+		lock_release(lock_evict);
 		if(zero) {
 			new_frame->kaddr = palloc_get_page(PAL_USER | PAL_ASSERT | PAL_ZERO);
 		} else {
