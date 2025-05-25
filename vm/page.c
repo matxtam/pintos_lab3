@@ -159,7 +159,6 @@ install_page (void *upage, void *kpage, bool writable)
 
 
 void pin_user_pages(const void *uaddr_, size_t size) {
-	printf("pin user page\n");
   uint8_t *uaddr = pg_round_down(uaddr_);
   for (size_t ofs = 0; ofs < size; ofs += PGSIZE) {
     struct suppPage *p = suppPage_lookup(uaddr + ofs);

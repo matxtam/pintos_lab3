@@ -101,6 +101,7 @@ static void push_argument(void **esp, char *cmdline)
    running. */
 static void start_process (void *file_name_)
 {
+	suppPage_init();
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
@@ -117,7 +118,6 @@ static void start_process (void *file_name_)
 
   char *save_ptr;
   file_name = strtok_r(file_name, " ", &save_ptr);
-	printf("before loading of a thread\n");
   success = load (file_name, &if_.eip, &if_.esp);
   if(success)
   {
@@ -136,8 +136,6 @@ static void start_process (void *file_name_)
   }
 
   free(fn_copy);
-	printf("about to jump into thread\n");
-	suppPage_init();
   
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -324,7 +322,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-	printf("open exe file\n");
   acquire_file_lock();
   file = filesys_open (file_name);
   if (file == NULL) 
@@ -335,7 +332,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
     /* Deny write for the opened file by calling file deny write */
     file_deny_write(file);
   t->exec_file = file;
-	printf("exe file opened\n");
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -349,7 +345,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: error loading executable\n", file_name);
       goto done; 
     }
-	printf("exe verified\n");
 
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
@@ -493,7 +488,6 @@ static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
 {
-	printf("loading segment...\n");
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
@@ -526,7 +520,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 			// I HATE THIS LINE BUT I NEED IT
 			ofs += page_read_bytes;
     }
-	printf("load segment done\n");
   return true;
 }
 
@@ -535,7 +528,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
-	printf("setting up stack...\n");
   uint8_t *kpage;
   bool success = false;
 
@@ -554,7 +546,6 @@ setup_stack (void **esp)
       else
         palloc_free_page (kpage);
     }
-	printf("setup stack ok\n");
   return success;
 }
 
