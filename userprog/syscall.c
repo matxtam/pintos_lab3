@@ -111,7 +111,9 @@ void sys_exec(struct intr_frame* f)
   char **cmd_ptr = (char **)f->esp + 1;
   check_ptr(cmd_ptr);
   check_ptr(*cmd_ptr);
+	pin_user_pages(*cmd_ptr, strlen(*cmd_ptr) + 1);
   f->eax = process_execute(*cmd_ptr); // return valid pid or -1
+	unpin_user_pages(*cmd_ptr, strlen(*cmd_ptr) + 1);
 }
 
 void sys_wait(struct intr_frame* f)
@@ -139,9 +141,11 @@ void sys_write(struct intr_frame* f)
   }else{
     struct open_file *tmp = find_file(fd);
     if(tmp){
+			pin_user_pages(buffer, size);
       acquire_file_lock();
       f->eax = file_write(tmp->file, buffer, size);
       release_file_lock();
+			unpin_user_pages(buffer, size);
     }else{
       f->eax = 0;
     }
@@ -230,9 +234,11 @@ void sys_read (struct intr_frame* f)
     struct open_file *tmp = find_file(fd);
     if(tmp)
     {
+			pin_user_pages(buffer, size);
       acquire_file_lock();
       f->eax = file_read(tmp->file, buffer, size);
       release_file_lock(); 
+			unpin_user_pages(buffer, size);
     }else
     {
       f->eax = -1;

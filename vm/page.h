@@ -38,5 +38,8 @@ struct suppPage * suppPage_lookup (void *upage);
 
 bool suppPage_load(struct suppPage *p);
 
+void pin_user_pages(const void *uaddr_, size_t size);
 
+void unpin_user_pages(const void *uaddr_, size_t size);
+	
 #endif

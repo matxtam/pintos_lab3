@@ -2,6 +2,7 @@
 #include "threads/palloc.h"
 #include "filesys/file.h"
 #include "userprog/pagedir.h"
+#include "threads/vaddr.h"
 #include "vm/frame.h"
 #include "vm/page.h"
 #include <hash.h>
@@ -97,6 +98,7 @@ suppPage_load(struct suppPage *p) {
 	size_t page_zero_bytes = p->load_info.page_zero_bytes;
 	bool writable = p->load_info.writable;
 	off_t ofs = p->load_info.ofs;
+	p->isPinned = true;
 
 
 	/* Get a page of memory. */
@@ -130,6 +132,7 @@ suppPage_load(struct suppPage *p) {
 		}
 
 	/* loaded successfully */
+	p->isPinned = false;
 	p->isLoaded = true;
 	p->isInSwap = false;
 	// printf("load success\n");
@@ -154,4 +157,21 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+
+void pin_user_pages(const void *uaddr_, size_t size) {
+  uint8_t *uaddr = pg_round_down(uaddr_);
+  for (size_t ofs = 0; ofs < size; ofs += PGSIZE) {
+    struct suppPage *p = suppPage_lookup(uaddr + ofs);
+    if (p) p->isPinned = true;
+  }
+}
+
+void unpin_user_pages(const void *uaddr_, size_t size) {
+  uint8_t *uaddr = pg_round_down(uaddr_);
+  for (size_t ofs = 0; ofs < size; ofs += PGSIZE) {
+    struct suppPage *p = suppPage_lookup(uaddr + ofs);
+    if (p) p->isPinned = false;
+  }
 }
