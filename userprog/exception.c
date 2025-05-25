@@ -7,6 +7,16 @@
 #include "vm/page.h"
 #include "threads/vaddr.h"
 
+#define STACK_HEURISTIC 32
+#define STACK_MAX (8 * 1024 * 1024) // 8MB
+
+static bool is_stack_growth(void *fault_addr, void *esp) {
+    return (fault_addr >= (void *)0x08048000 && 
+            fault_addr < PHYS_BASE &&
+            (fault_addr >= esp - STACK_HEURISTIC) &&
+            ((PHYS_BASE - pg_round_down(fault_addr)) <= STACK_MAX));
+}
+
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
@@ -149,23 +159,38 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
+  if (!user) {
+      kill(f);
+      return;
+  }
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
 	
 	// lab03
-	void *upage = pg_round_down(fault_addr);
-	struct suppPage * sp = suppPage_lookup(upage);
-	if(sp && suppPage_load(sp)) {
-		return;
-	} else {
-		printf ("Page fault at %p: %s error %s page in %s context.\n",
-						fault_addr,
-						not_present ? "not present" : "rights violation",
-						write ? "writing" : "reading",
-						user ? "user" : "kernel");
-		kill (f);
-	}
+
+  void *upage = pg_round_down(fault_addr);
+  bool success = false;
+
+  if (not_present && is_stack_growth(fault_addr, f->esp)) {
+      if (suppPage_insert(upage, NULL, 0, 0, true, 0, false)) {
+          struct suppPage *sp = suppPage_lookup(upage);
+          if (sp && suppPage_load(sp)) success = true;
+      }
+  } else {
+      struct suppPage *sp = suppPage_lookup(upage);
+      if (sp && suppPage_load(sp)) success = true;
+  }
+
+  if (!success){
+      printf ("Page fault at %p: %s error %s page in %s context.\n",
+              fault_addr,
+              not_present ? "not present" : "rights violation",
+              write ? "writing" : "reading",
+              user ? "user" : "kernel");
+      kill (f);
+  }
 }
+
 

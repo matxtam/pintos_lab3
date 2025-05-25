@@ -218,7 +218,7 @@ void sys_read (struct intr_frame* f)
   off_t size = (off_t)args[3];
 
   check_ptr(buffer);
-  check_ptr(buffer + size);
+  check_ptr(buffer + size - 1);
 
   if(fd == 0)
   {
